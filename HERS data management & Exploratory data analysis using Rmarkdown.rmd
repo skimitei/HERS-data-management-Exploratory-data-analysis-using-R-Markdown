@@ -1,0 +1,276 @@
+---
+title: "Heart and Estrogen/progestin Replacement Study (HERS)"
+author: "Symon Kimitei"
+date: "October 31, 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+DATA WRANGLING AND DATA VISUALIZATION IN RMARKDOWN
+Data:  “The Heart and Estrogen/progestin Replacement Study (HERS) is a randomized, double-blind, 
+placebo-controlled trial designed to test the efficacy and safety of estrogen plus progestin therapy 
+for prevention of recurrent coronary heart disease (CHD) events in women. The participants are postmenopausal 
+women with a uterus and with CHD as evidenced by prior myocardial infarction, coronary artery bypass graft surgery, 
+percutaneous transluminal coronary angioplasty, or other mechanical revascularization or at least 50% occlusion of a 
+major coronary artery. Between February 1993 and September 1994, 20 HERS centers recruited and randomized 2763 women”. 
+
+A simple random sample of the data is provided with the quantitative variables in the file “HW2QuantVar.xlsx” and 
+the categorical variables in the file “HW2CatVar.xlsx”.
+	
+Specify path, load all the necessary libraries and import the necessary excel files.
+Merge the HW2QuantVar.xlsx and HW2CatVar.xlsx data sets by "id" into one tibble and
+Save the tibble in your R session as the object "d1full".
+```{r}
+#1 Specify file path
+setwd("C:/Users/skimitei/Desktop/r_code")
+
+library(dplyr)
+library(tidyverse)
+library(readxl)
+library(ggplot2)
+library("ggpubr")
+
+# Import HW2QuantVars.xlsx file
+HW2QuantVars <- read_excel("HW2QuantVars.xlsx")
+head(HW2QuantVars)
+dim(HW2QuantVars) # Dimension: 1000 rows by 23 columns
+
+# Import HW2QuantVars.xlsx file
+HW2CatVars <- read_excel("HW2CatVars.xlsx")
+head(HW2QuantVars )
+dim(HW2CatVars) # Dimension: 1000 rows by 16 columns
+
+
+
+#2 Merge the two files into one
+d1full <- merge(HW2QuantVars, HW2CatVars, by="id", all = TRUE)
+d1full<- d1full %>%
+    select(-matches("id"))
+
+# 3.	Use R to answer the following:
+# a.	What are the dimensions of "d1full"? 1000 by 38
+# b.	How many subjects do you have in your sample?   1000 subjects
+# c.	How many variables are in your sample?  38 variables including the ID variable
+
+#d1full<-na.omit(d1full)
+head(d1full)
+dim(d1full) # New dimension is 1000 rows(subjects) by 38 columns(variables) including the id column
+write.csv(d1full, file = "d1full.csv")
+
+
+
+```
+
+
+4.	Create a barchart and frequency table for the variable "diabetes".  What percent of your sample are diabetic
+```{r}
+d1full %>% 
+    group_by(diabetes) %>% 
+    summarize(n = n(), na.rm = TRUE) %>%
+    ggplot(aes(x = diabetes, y = n, fill=diabetes)) + 
+    geom_col() +geom_bar(stat="identity") #+ coord_flip() # flip the two axes
+
+#Create the frequency table for the variable "diabetes"
+d1full %>% 
+    group_by(diabetes) %>% 
+    summarise(n = n()) %>%
+    mutate(freq = n / sum(n))%>%
+    mutate(percent_freq = paste0(round(100 * freq, 0), "%"))
+
+```
+
+
+5.	Subset variables: age, BMI, drinkany, exercise, and glucose for only non-diabetics.  
+Next create a new tibble called d1 which has only age, BMI, drinkany, exercise, and glucose for non-diabetics.  
+```{r}
+d1<-d1full %>% 
+  filter(diabetes=="no") %>%
+  select(age,BMI,drinkany,exercise,glucose,diabetes) 
+  # Add the diabetes column to show that all the elements of this vector all all of value "no"
+
+head(d1)
+dim(d1)
+```
+
+
+6.	Gain a general understanding of the variables in your data set by calculating summary statistics for your variables.  Combine results for quantitative variables into one table or tibble.
+
+```{r}
+# Gain a general understanding of all the variables in d1full
+d1full %>% 
+  summary()
+
+```
+
+```{r}
+#=======================================================
+# Subset the dataframe d1full so that it only contains quantitative variables
+d1full %>% 
+  select_if(is.numeric)%>%  # select_if subsets conditionally
+  summary()  # display the summary statistics for the subsetted quantitative variables
+
+# Store the subsetted variables into a new tibble
+num_d1full<-d1full %>% 
+  select(DBP,SBP,age,age10,glucose,weight,medcond)
+head(num_d1full)
+```
+
+
+7.	For regression, we need to include only complete data for analysis.  Omit na's now to prepare for regression.
+
+```{r}
+# Store the subsetted variables into one tibble
+num_d1full<-d1full %>% 
+  na.omit() %>%
+  select(DBP,SBP,age,age10,glucose,weight,medcond)
+
+# View the first 6 observations
+head(num_d1full)
+
+# View the summary statistics to ensure that there are no NA values
+summary(num_d1full)
+   
+```
+8.	Create a plot to visualize the relationship between glucose and BMI (for non-diabetics) using ggplot.  Treat glucose as the outcome variable and BMI as the predictor variable.  Add a regression line to the scatterplot and make at least 2 customizations to your plot using options illustrated in class, on the ggplot "cheatsheet" from RStudio, or the internet.
+
+*Review & correct this. 
+```{r}
+d1full$BMI<-as.numeric(as.character(d1full$BMI)) # Convert BMI to numeric datatype
+
+
+d1full %>%
+    filter(diabetes=="no")%>%
+    select(BMI,glucose,exercise) %>%
+    ggplot(aes(x=BMI,y=glucose,color=exercise,na.rm = TRUE))+  # color the points by exercise
+    geom_point(size=2,alpha=0.7)+geom_smooth(method = "lm",se = FALSE, color = "blue")  # Display the regression line in blue
+
+
+    
+
+  
+```
+
+
+9.	Calculate the correlation between glucose and BMI (for non-diabetics).
+```{r}
+
+# Measure the correlation between glucose and BMI
+d1full$BMI<-as.numeric(as.character(d1full$BMI)) # Convert BMI to numeric datatype
+d1full$glucose<-as.numeric(as.character(d1full$glucose)) # Convert glucose to numeric datatype
+d1full %>%
+  subset(diabetes == "no") %$%
+  cor.test(glucose, BMI) # 0.2567985  which indicates a weak degree of linear dependence between 
+                         # glucose and BMI for non-diabetics
+  
+```
+
+10.	Fit a model predicting glucose by exercise for non-diabetics.  Run diagnostics on the model.  Write 2-4 sentences reporting and interpreting the output.
+a.	Note: You may need to recode your yes/no categorical variables to 0/1 indicators.  If so, make sure there is code to show how you do this in R. 
+b.	Show the code used to fit the model and create diagnostic output.
+c.	Specify the model.
+d.	Report the R2 value
+e.	Is the model valid?  (check assumptions)
+f.	Make one prediction using R.  Interpret.
+
+```{r}
+# Create a new column in the dataset d1full and name it exer_yes_no which assigns 1 if exercise is "yes" and 0 if exercise is "no"
+d1full$exer_yes_no[d1full$exercise=="yes"]<-1
+d1full$exer_yes_no[d1full$exercise=="no"]<-0
+head(d1full)
+
+# Create a Scatter plot for x vs y
+d1full %>%
+    select(glucose,exer_yes_no, exercise) %>%
+    ggplot(aes(x=exer_yes_no,y=glucose,color=exercise,na.rm = TRUE))+  
+     # color the points by exercise
+    geom_point(size=2,alpha=0.7)+geom_smooth(method = "lm", color="red") +
+    geom_smooth(se = FALSE, color = "red")  # Display the regression line in red
+
+# Fit a linear regression predicting glucose by exercise for non-diabetics
+linearMod <- lm(glucose ~exer_yes_no, data=d1full, color="red")
+summary(linearMod)
+
+```
+
+f.	Make one prediction using R.  Interpret.
+Create a linear regression model in order to establish the relationship between the predictor(x) and response(x) in the form of a mathematical formula.
+```{r}
+
+# Make a model prediction in R
+
+modelSummary <- summary(linearMod)
+print("model coefficients")
+modelCoeffs <- modelSummary$coefficients
+modelCoeffs
+b_1 <- modelCoeffs["exer_yes_no", "Estimate"]
+b_1
+print("y intercept")
+b_0 <- modelCoeffs["(Intercept)", "Estimate"]
+b_0
+
+# Make a glucose prediction for the case when exercise is "yes"
+
+print("predicted glucose level when exercise is yes ")
+yes_no=1
+pred_glucose<-b_0+b_1*yes_no
+print(pred_glucose)
+
+```
+
+
+
+11.	Fit a predicting glucose among non-diabetics by exercise, age, drinkany, and BMI. Write 2-4 sentences reporting and interpreting the output.  Report whether this model performs better than the model in #10.
+a.	Note: You may need to recode your yes/no categorical variables to 0/1 indicators.  If so, make sure there is code to show how you do this in R. 
+b.	Show the code used to fit the model and create diagnostic output.
+c.	Specify the model.
+d.	Report the R2 value
+e.	Is the model valid?  (check assumptions)
+
+```{r}
+d1full$drink_yes_no[d1full$drinkany=="yes"]<-1
+d1full$drink_yes_no[d1full$drinkany=="no"]<-0
+head(d1full)
+fit2 <- lm(glucose ~ exer_yes_no + age + drink_yes_no + BMI, data=d1full)
+summary(fit2)
+```
+```{r}
+# capture model summary as an object
+modelSummary <- summary(fit2)  
+
+
+print("model coefficients")
+modelCoeffs <- modelSummary$coefficients
+modelCoeffs
+
+print("y intercept")
+intercept.estimate0 <- modelCoeffs["(Intercept)", "Estimate"]
+intercept.estimate0
+
+# If the beta coefficient is positive, the interpretation is that for every 1-unit 
+# increase in the predictor variable, the outcome variable will increase by the beta coefficient 
+# value and vice versa
+print("beta estimate for exer_yes_no variable")
+beta.estimate1 <- modelCoeffs["exer_yes_no", "Estimate"]
+beta.estimate1
+
+print("beta estimate for age variable")
+beta.estimate2 <- modelCoeffs["age", "Estimate"]
+beta.estimate2
+
+print("beta estimate for BMI variable")
+beta.estimate5 <- modelCoeffs["BMI", "Estimate"]
+beta.estimate5
+
+print("f_statistic")
+f_statistic <- modelSummary$fstatistic
+f_statistic
+```
+
+
+
+
+
